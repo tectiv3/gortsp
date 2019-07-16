@@ -12,12 +12,15 @@ import (
 	"net"
 	"net/http"
 
-	x264 "github.com/gen2brain/x264-go"
+	"github.com/saljam/mjpeg"
+	// "github.com/tectiv3/dorsvr/rtspserver"
 )
 
 var encoded string
 var rgba image.Image
-var enc *x264.Encoder
+var stream *mjpeg.Stream
+
+// var enc *x264.Encoder
 
 func startWebServer() {
 
@@ -34,30 +37,58 @@ func startWebServer() {
 		jpeg.Encode(w, rgba, nil) // Write to the ResponseWriter
 	})
 
+	stream = mjpeg.NewStream()
+	http.Handle("/camera", stream)
+
 	log.Fatal(http.ListenAndServe(":8081", nil))
+
+	// server := rtspserver.New(nil)
+
+	// portNum := 8554
+	// err := server.Listen(portNum)
+	// if err != nil {
+	// 	log.Printf("Failed to bind port: %d\n", portNum)
+	// 	return
+	// }
+
+	// if !server.SetupTunnelingOverHTTP(80) ||
+	// 	!server.SetupTunnelingOverHTTP(8000) ||
+	// 	!server.SetupTunnelingOverHTTP(8080) {
+	// 	log.Printf("We use port %d for optional RTSP-over-HTTP tunneling, "+
+	// 		"or for HTTP live streaming (for indexed Transport Stream files only).\n", server.HTTPServerPortNum())
+	// } else {
+	// 	log.Println("(RTSP-over-HTTP tunneling is not available.)")
+	// }
+
+	// urlPrefix := server.RtspURLPrefix()
+	// log.Println("This server's URL: " + urlPrefix + "<filename>.")
+
+	// server.Start()
+
+	// select {}
 }
 
-func initX264() {
-	opts := &x264.Options{
-		Width:     320,
-		Height:    240,
-		FrameRate: 10,
-		Tune:      "zerolatency",
-		Preset:    "veryfast",
-		Profile:   "baseline",
-		LogLevel:  x264.LogDebug,
-	}
-	var err error
+// func initX264() {
+// 	opts := &x264.Options{
+// 		Width:     320,
+// 		Height:    240,
+// 		FrameRate: 10,
+// 		Tune:      "zerolatency",
+// 		Preset:    "veryfast",
+// 		Profile:   "baseline",
+// 		LogLevel:  x264.LogDebug,
+// 	}
+// 	var err error
 
-	buf := bytes.NewBuffer(make([]byte, 0))
-	enc, err = x264.NewEncoder(buf, opts)
-	if err != nil {
-		log.Printf("%s\n", err.Error())
-		return
-	}
+// 	buf := bytes.NewBuffer(make([]byte, 0))
+// 	enc, err = x264.NewEncoder(buf, opts)
+// 	if err != nil {
+// 		log.Printf("%s\n", err.Error())
+// 		return
+// 	}
 
-	defer enc.Close()
-}
+// 	defer enc.Close()
+// }
 
 //StartServer starts webserver
 func StartServer(name string) string {
@@ -67,7 +98,7 @@ func StartServer(name string) string {
 	}
 	log.Println(ip)
 	go startWebServer()
-	initX264()
+
 	return fmt.Sprintf("IP: %s for %s.", ip, name)
 }
 
@@ -91,10 +122,13 @@ func PushImage(y, u, v []byte, width, height int) {
 	// draw.Draw(m, m.Bounds(), res, b.Min, draw.Src)
 	rgba = res
 
-	if err := enc.Encode(res); err != nil {
-		log.Printf("%s\n", err.Error())
-	}
+	buf := &bytes.Buffer{}
+	jpeg.Encode(buf, res, nil)
 
+	stream.UpdateJPEG(buf.Bytes())
+	// if err := enc.Encode(res); err != nil {
+	// 	log.Printf("%s\n", err.Error())
+	// }
 }
 
 func toH264(img []byte, width, height int) {

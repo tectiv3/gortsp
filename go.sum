@@ -1,2 +1,10 @@
 github.com/gen2brain/x264-go v0.0.0-20180306035800-58f586137654 h1:RNpogAT5Qz69YLIu6+92q5sSw61PjjhDj4upH2el5pk=
 github.com/gen2brain/x264-go v0.0.0-20180306035800-58f586137654/go.mod h1:17kvfYQKi9/QHiKPeqmJW0YuDPZEgy72tSBVmweSyiE=
+github.com/saljam/mjpeg v0.0.0-20180803045301-9c13c8154926 h1:ar6Ceu1unlyaO76hvKGp5WLN5yzvfWAINpwsY90+Qz4=
+github.com/saljam/mjpeg v0.0.0-20180803045301-9c13c8154926/go.mod h1:pSj+B4ctn3PInlvSRdQQIWXTuCI2gkOo3+jOnQyM7Lg=
+github.com/tectiv3/dorsvr v0.0.0-20190716110458-4d595a46127f h1:bEzqN9inyi9SQWcejQjExMCAUwL5vbFy3u4+WiIK6vk=
+github.com/tectiv3/dorsvr v0.0.0-20190716110458-4d595a46127f/go.mod h1:O6b9Vg3yhEWXn7fu4tikOq4VgIyAffIi1/SwYanpMC8=
+github.com/tectiv3/gitea v0.0.0-20190714115552-85e4cb84f564 h1:DBT96MxSL4uU15jqGeN0sg2IWFzUp35MzKV9xVClFXQ=
+github.com/tectiv3/gitea v0.0.0-20190714115552-85e4cb84f564/go.mod h1:11K4rx/tk1TAxpx5OiDTMWvFHBOZpzEPpXPD04UrPDs=
+golang.org/x/sync v0.0.0-20190423024810-112230192c58 h1:8gQV6CLnAEikrhgkHFbMAEhagSSnXWGV915qUMm9mrU=
+golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
