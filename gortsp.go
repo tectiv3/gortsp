@@ -1,6 +1,7 @@
 package gortsp
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -10,11 +11,13 @@ import (
 	"log"
 	"net"
 	"net/http"
-	// codec "github.com/sikang99/codec"
+
+	x264 "github.com/gen2brain/x264-go"
 )
 
 var encoded string
 var rgba image.Image
+var enc *x264.Encoder
 
 func startWebServer() {
 
@@ -34,6 +37,29 @@ func startWebServer() {
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }
 
+func initX264() {
+	opts := &x264.Options{
+		Width:     320,
+		Height:    240,
+		FrameRate: 10,
+		Tune:      "zerolatency",
+		Preset:    "veryfast",
+		Profile:   "baseline",
+		LogLevel:  x264.LogDebug,
+	}
+	var err error
+
+	buf := bytes.NewBuffer(make([]byte, 0))
+	enc, err = x264.NewEncoder(buf, opts)
+	if err != nil {
+		log.Printf("%s\n", err.Error())
+		return
+	}
+
+	defer enc.Close()
+}
+
+//StartServer starts webserver
 func StartServer(name string) string {
 	ip, err := externalIP()
 	if err != nil {
@@ -41,14 +67,17 @@ func StartServer(name string) string {
 	}
 	log.Println(ip)
 	go startWebServer()
+	initX264()
 	return fmt.Sprintf("IP: %s for %s.", ip, name)
 }
 
+//DumpByteArray just dumps array length and encodes it into string
 func DumpByteArray(img []byte) {
 	log.Printf("Len: %d\n", len(img))
 	encoded = base64.StdEncoding.EncodeToString(img)
 }
 
+//PushImage pushes YUV image down to encoder
 func PushImage(y, u, v []byte, width, height int) {
 	log.Printf("Len: %d,%d,%d. %dx%d", len(y), len(u), len(v), width, height)
 	// encoded = base64.StdEncoding.EncodeToString(img)
@@ -61,6 +90,11 @@ func PushImage(y, u, v []byte, width, height int) {
 	// m := image.New (image.Rect(0, 0, b.Dx(), b.Dy()))
 	// draw.Draw(m, m.Bounds(), res, b.Min, draw.Src)
 	rgba = res
+
+	if err := enc.Encode(res); err != nil {
+		log.Printf("%s\n", err.Error())
+	}
+
 }
 
 func toH264(img []byte, width, height int) {
