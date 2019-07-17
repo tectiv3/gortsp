@@ -1,159 +1,78 @@
 package gortsp
 
 import (
-	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
-	"html"
-	"image"
-	"image/jpeg"
 	"log"
 	"net"
-	"net/http"
+	"time"
 
-	"github.com/saljam/mjpeg"
-	// "github.com/tectiv3/dorsvr/rtspserver"
+	"github.com/tectiv3/edrtsp/rtsp"
 )
 
-var encoded string
-var rgba image.Image
-var stream *mjpeg.Stream
+var rtspServer *rtsp.Server
 
-// var enc *x264.Encoder
+func startRTSP() (err error) {
+	if rtspServer == nil {
+		err = fmt.Errorf("RTSP Server Not Found")
+		return
+	}
 
-func startWebServer() {
+	link := fmt.Sprintf("rtsp://%s:%d", localIP(), rtspServer.TCPPort)
+	log.Println("rtsp server started -->", link)
+	go func() {
+		if err := rtspServer.Start(); err != nil {
+			log.Println("start rtsp server error", err)
+		}
+		log.Println("rtsp server stopped")
+	}()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
-	})
-
-	http.HandleFunc("/hi", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hi")
-	})
-	http.HandleFunc("/image", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/jpeg")
-		// w.Header().Set("Content-Length", strconv.Itoa(len(buffer.Bytes())))
-		jpeg.Encode(w, rgba, nil) // Write to the ResponseWriter
-	})
-
-	stream = mjpeg.NewStream()
-	http.Handle("/camera", stream)
-
-	log.Fatal(http.ListenAndServe(":8081", nil))
-
-	// server := rtspserver.New(nil)
-
-	// portNum := 8554
-	// err := server.Listen(portNum)
-	// if err != nil {
-	// 	log.Printf("Failed to bind port: %d\n", portNum)
-	// 	return
-	// }
-
-	// if !server.SetupTunnelingOverHTTP(80) ||
-	// 	!server.SetupTunnelingOverHTTP(8000) ||
-	// 	!server.SetupTunnelingOverHTTP(8080) {
-	// 	log.Printf("We use port %d for optional RTSP-over-HTTP tunneling, "+
-	// 		"or for HTTP live streaming (for indexed Transport Stream files only).\n", server.HTTPServerPortNum())
-	// } else {
-	// 	log.Println("(RTSP-over-HTTP tunneling is not available.)")
-	// }
-
-	// urlPrefix := server.RtspURLPrefix()
-	// log.Println("This server's URL: " + urlPrefix + "<filename>.")
-
-	// server.Start()
-
-	// select {}
+	select {}
+	return
 }
 
-// func initX264() {
-// 	opts := &x264.Options{
-// 		Width:     320,
-// 		Height:    240,
-// 		FrameRate: 10,
-// 		Tune:      "zerolatency",
-// 		Preset:    "veryfast",
-// 		Profile:   "baseline",
-// 		LogLevel:  x264.LogDebug,
-// 	}
-// 	var err error
-
-// 	buf := bytes.NewBuffer(make([]byte, 0))
-// 	enc, err = x264.NewEncoder(buf, opts)
-// 	if err != nil {
-// 		log.Printf("%s\n", err.Error())
-// 		return
-// 	}
-
-// 	defer enc.Close()
-// }
+func stopRTSP() (err error) {
+	if rtspServer == nil {
+		err = fmt.Errorf("RTSP Server Not Found")
+		return
+	}
+	rtspServer.Stop()
+	return
+}
 
 //StartServer starts webserver
-func StartServer(name string) string {
+func StartServer() string {
 	ip, err := externalIP()
 	if err != nil {
 		ip = fmt.Sprint(err)
 	}
 	log.Println(ip)
-	go startWebServer()
+	rtspServer = rtsp.GetServer()
+	rtspServer.TCPPort = 8554
+	go startRTSP()
 
-	return fmt.Sprintf("IP: %s for %s.", ip, name)
+	local := localIP()
+	return fmt.Sprintf("External: %s, Local: %s", ip, local)
 }
 
-//DumpByteArray just dumps array length and encodes it into string
-func DumpByteArray(img []byte) {
-	log.Printf("Len: %d\n", len(img))
-	encoded = base64.StdEncoding.EncodeToString(img)
+func localIP() string {
+	ip := ""
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsMulticast() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() && ipnet.IP.To4() != nil {
+				ip = ipnet.IP.String()
+			}
+		}
+	}
+	return ip
 }
 
-//PushImage pushes YUV image down to encoder
-func PushImage(y, u, v []byte, width, height int) {
-	log.Printf("Len: %d,%d,%d. %dx%d", len(y), len(u), len(v), width, height)
-	// encoded = base64.StdEncoding.EncodeToString(img)
-	rect := image.Rectangle{image.Point{0, 0}, image.Point{width, height}}
-	res := image.NewYCbCr(rect, image.YCbCrSubsampleRatio420)
-	res.Y = y
-	res.Cb = u
-	res.Cr = v
-	// b := res.Bounds()
-	// m := image.New (image.Rect(0, 0, b.Dx(), b.Dy()))
-	// draw.Draw(m, m.Bounds(), res, b.Min, draw.Src)
-	rgba = res
-
-	buf := &bytes.Buffer{}
-	jpeg.Encode(buf, res, nil)
-
-	stream.UpdateJPEG(buf.Bytes())
-	// if err := enc.Encode(res); err != nil {
-	// 	log.Printf("%s\n", err.Error())
-	// }
-}
-
-func toH264(img []byte, width, height int) {
-	// w := 400
-	// h := 400
-	// var nal [][]byte
-
-	// c, _ := codec.NewH264Encoder(w, h, image.YCbCrSubsampleRatio420)
-	// nal = append(nal, c.Header)
-
-	// for i := 0; i < 60; i++ {
-	// 	img := image.NewYCbCr(image.Rect(0, 0, w, h), image.YCbCrSubsampleRatio420)
-	// 	p, _ := c.Encode(img)
-	// 	if len(p.Data) > 0 {
-	// 		nal = append(nal, p.Data)
-	// 	}
-	// }
-	// for {
-	// 	// flush encoder
-	// 	p, err := c.Encode(nil)
-	// 	if err != nil {
-	// 		break
-	// 	}
-	// 	nal = append(nal, p.Data)
-	// }
+func isPortInUse(port int) bool {
+	if conn, err := net.DialTimeout("tcp", net.JoinHostPort("", fmt.Sprintf("%d", port)), 3*time.Second); err == nil {
+		conn.Close()
+		return true
+	}
+	return false
 }
 
 func externalIP() (string, error) {
