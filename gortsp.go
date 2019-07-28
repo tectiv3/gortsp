@@ -1,13 +1,12 @@
 package gortsp
 
 import (
-	"errors"
 	"fmt"
 	"log"
-	"net"
-	"time"
 
 	"github.com/tectiv3/edrtsp/rtsp"
+	"github.com/tectiv3/edrtsp/stats"
+	"github.com/tectiv3/edrtsp/utils"
 )
 
 var rtspServer *rtsp.Server
@@ -18,7 +17,7 @@ func startRTSP() (err error) {
 		return
 	}
 
-	link := fmt.Sprintf("rtsp://%s:%d", localIP(), rtspServer.TCPPort)
+	link := fmt.Sprintf("rtsp://%s:%d", utils.LocalIP(), rtspServer.TCPPort)
 	log.Println("rtsp server started -->", link)
 	go func() {
 		if err := rtspServer.Start(); err != nil {
@@ -42,7 +41,7 @@ func stopRTSP() (err error) {
 
 //StartServer starts webserver
 func StartServer() string {
-	ip, err := externalIP()
+	ip, err := utils.ExternalIP()
 	if err != nil {
 		ip = fmt.Sprint(err)
 	}
@@ -51,63 +50,21 @@ func StartServer() string {
 	rtspServer.TCPPort = 8554
 	go startRTSP()
 
-	local := localIP()
+	local := utils.LocalIP()
 	return fmt.Sprintf("External: %s, Local: %s", ip, local)
 }
 
-func localIP() string {
-	ip := ""
-	if addrs, err := net.InterfaceAddrs(); err == nil {
-		for _, addr := range addrs {
-			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsMulticast() && !ipnet.IP.IsLinkLocalUnicast() && !ipnet.IP.IsLinkLocalMulticast() && ipnet.IP.To4() != nil {
-				ip = ipnet.IP.String()
-			}
-		}
-	}
-	return ip
+//GetStats returns json encoded server stats
+func GetStats() string {
+	return string(stats.GetStats())
 }
 
-func isPortInUse(port int) bool {
-	if conn, err := net.DialTimeout("tcp", net.JoinHostPort("", fmt.Sprintf("%d", port)), 3*time.Second); err == nil {
-		conn.Close()
-		return true
-	}
-	return false
+//GetPushers returns json encoded pushers stats
+func GetPushers() string {
+	return string(stats.GetPushersJSON())
 }
 
-func externalIP() (string, error) {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return "", err
-	}
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 {
-			continue // interface down
-		}
-		if iface.Flags&net.FlagLoopback != 0 {
-			continue // loopback interface
-		}
-		addrs, err := iface.Addrs()
-		if err != nil {
-			return "", err
-		}
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-			if ip == nil || ip.IsLoopback() {
-				continue
-			}
-			ip = ip.To4()
-			if ip == nil {
-				continue // not an ipv4 address
-			}
-			return ip.String(), nil
-		}
-	}
-	return "", errors.New("are you connected to the network?")
+//GetPlayers returns json encoded players stats
+func GetPlayers() string {
+	return string(stats.GetPlayersJSON())
 }
